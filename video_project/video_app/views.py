@@ -6,7 +6,7 @@ from rest_framework import status
 import google.generativeai as genai
 
 # Configure the API key
-genai.configure(api_key="AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGYY")
+genai.configure(api_key="AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY")
 
 class GenerateVideoView(APIView):
     def post(self, request):
