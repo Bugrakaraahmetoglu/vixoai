@@ -24,23 +24,8 @@ class GenerateVideoView(APIView):
             return Response({"error": "Prompt alanı zorunludur."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Mevcut modelleri listele ve debug için yazdır
-            models = genai.list_models()
-            print("Mevcut modeller:")
-            veo_models = []
-            for model in models:
-                print(f"- {model.name}")
-                if "veo" in model.name.lower():
-                    veo_models.append(model.name)
-            
-            if not veo_models:
-                return Response(
-                    {"error": "Veo video üretim modeli API anahtarınızla kullanılamıyor"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
-            # İlk bulduğumuz Veo modelini kullan
-            model_name = veo_models[0]
+            # Direkt olarak veo-2.0-generate-001 modelini kullan
+            model_name = "veo-2.0-generate-001"
             print(f"Kullanılan video modeli: {model_name}")
             
             # Model örneği oluştur
