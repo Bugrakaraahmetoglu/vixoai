@@ -5,10 +5,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 import google.generativeai as genai
-from google.generativeai import types
 
-# Google API client başlat
-client = genai.Client(api_key="AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY")
+# Configure the Google API
+genai.configure(api_key="AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY")
 
 class GenerateVideoView(APIView):
     def post(self, request):
@@ -22,26 +21,35 @@ class GenerateVideoView(APIView):
         os.makedirs(output_folder, exist_ok=True)
 
         try:
-            operation = client.models.generate_videos(
-                model="veo-2.0-generate-001",
+            # Get the video generation model
+            model = genai.get_generative_model(model_name="veo-2.0-generate-001")
+            
+            # Start the generation operation
+            generation_config = {
+                "person_generation": "allow_adult",
+                "aspect_ratio": aspect_ratio
+            }
+            
+            response = model.generate_video(
                 prompt=prompt_text,
-                config=types.GenerateVideosConfig(
-                    person_generation="allow_adult",
-                    aspect_ratio=aspect_ratio
-                )
+                generation_config=generation_config
             )
-            print(operation.response)
-
-            while not operation.done:
+            
+            # Get the operation ID to track progress
+            operation_name = response.operation.name
+            
+            # Poll until completion
+            while not response.operation.done:
                 time.sleep(20)
-                operation = client.operations.get(operation)
-
-            if operation.response and hasattr(operation.response, 'generated_videos') and operation.response.generated_videos:
+                response = genai.get_operation(operation_name)
+            
+            # Check for results
+            if hasattr(response, 'result') and response.result and hasattr(response.result, 'videos') and response.result.videos:
                 filename_prefix = "_".join(prompt_text.split()[:2])
                 
-                # İlk videoyu alıyoruz
-                generated_video = operation.response.generated_videos[0]
-                video_bytes = client.files.download(file=generated_video.video)
+                # Get the first video
+                generated_video = response.result.videos[0]
+                video_bytes = genai.download_file(uri=generated_video.uri)
                 filename = f"{filename_prefix}.mp4"
                 filepath = os.path.join(output_folder, filename)
                 
@@ -53,4 +61,3 @@ class GenerateVideoView(APIView):
                 return Response({"error": "Video oluşturulamadı."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
