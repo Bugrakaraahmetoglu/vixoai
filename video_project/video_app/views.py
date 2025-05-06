@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 import google.generativeai as genai
-from google.generativeai.types import GenerateVideosConfig
+from google.generativeai import types
 
 genai.configure(api_key="SENİN_API_KEYİN")
 
