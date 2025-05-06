@@ -5,8 +5,9 @@ from rest_framework.response import Response
 from rest_framework import status
 import google.generativeai as genai
 
-# Configure the API key
-genai.configure(api_key="AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY")
+# Environment değişkeninden API anahtarını al
+api_key = os.environ.get("GOOGLE_API_KEY")
+genai.configure(api_key=api_key)
 
 class GenerateVideoView(APIView):
     def post(self, request):
@@ -17,9 +18,9 @@ class GenerateVideoView(APIView):
             return Response({"error": "Prompt alanı zorunludur."}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Print available models to debug
+            # Mevcut modelleri listele ve debug için yazdır
             models = genai.list_models()
-            print("Available models:")
+            print("Mevcut modeller:")
             veo_models = []
             for model in models:
                 print(f"- {model.name}")
@@ -28,63 +29,74 @@ class GenerateVideoView(APIView):
             
             if not veo_models:
                 return Response(
-                    {"error": "Veo video generation model not available with your API key"}, 
+                    {"error": "Veo video üretim modeli API anahtarınızla kullanılamıyor"}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
-            # Use the first available Veo model
+            # İlk bulduğumuz Veo modelini kullan
             model_name = veo_models[0]
-            print(f"Using video model: {model_name}")
+            print(f"Kullanılan video modeli: {model_name}")
             
-            # Create model instance
+            # Model örneği oluştur
             model = genai.GenerativeModel(model_name=model_name)
             
-            # Check if the model has the video generation capability
+            # Model metodlarını debug için yazdır
+            print(f"Model metodları: {dir(model)}")
+            
+            # İstek yapısını hazırla
             generation_config = {
                 "aspect_ratio": aspect_ratio,
                 "person_generation": "dont_allow"
             }
             
-            # Start the video generation
+            # Video üretimini başlat
             try:
-                # Attempt to generate video content - implementation depends on the exact API structure
-                # The below is based on general Google GenAI patterns, specific API for video may differ
-                response = model.generate_content(
-                    contents=[{"text": prompt}],
-                    generation_config=generation_config
-                )
+                # Metodun varlığını kontrol et
+                if hasattr(model, "generate_content"):
+                    # Content API ile deneme
+                    response = model.generate_content(
+                        contents=[{"text": prompt}],
+                        generation_config=generation_config
+                    )
+                    print(f"Response tip: {type(response)}")
+                    print(f"Response öznitelikleri: {dir(response)}")
+                    
+                elif hasattr(model, "start_generation"):
+                    # Alternatif metod denemesi
+                    response = model.start_generation(
+                        prompt=prompt,
+                        generation_config=generation_config
+                    )
+                    print(f"Response tip: {type(response)}")
+                    print(f"Response öznitelikleri: {dir(response)}")
+                else:
+                    # Hiçbir bilinen metod bulunamadıysa
+                    return Response({
+                        "error": "Video üretimi için uygun metod bulunamadı. Google GenAI API değişmiş olabilir.",
+                        "available_methods": dir(model)
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
-                # For debugging
-                print(f"Response type: {type(response)}")
-                print(f"Response attributes: {dir(response)}")
-                
-                # Create directory for videos if not exists
-                video_id = prompt[:5].replace(" ", "_")
+                # Video dizini oluştur
+                video_id = ''.join(c if c.isalnum() else '_' for c in prompt[:10])
                 file_path = f"videos/{video_id}.mp4"
                 os.makedirs("videos", exist_ok=True)
                 
-                # Handle response and download video - implementation depends on API response structure
-                # This is a placeholder - adjust according to actual API response
+                # Debug için yanıtı kontrol et
                 if hasattr(response, "text"):
                     print(f"Response text: {response.text}")
                 
-                if hasattr(response, "candidates") and response.candidates:
-                    # Process video data based on actual response structure
-                    # This needs to be adjusted based on the actual API response
-                    print("Found candidates in response")
-                
                 return Response({
                     "status": "processing", 
-                    "message": "Video generation initiated. Check logs for details."
+                    "message": "Video üretimi başlatıldı. Detaylar için logları kontrol ediniz."
                 })
                 
             except AttributeError as e:
                 print(f"AttributeError: {str(e)}")
                 return Response({
-                    "error": f"Method not available: {str(e)}. Please check Veo API documentation.",
+                    "error": f"Metod kullanılamıyor: {str(e)}. Lütfen Veo API dökümantasyonunu kontrol ediniz.",
                     "available_methods": dir(model)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
         except Exception as e:
-            print(f"Exception: {str(e)}")
+            print(f"Hata: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
