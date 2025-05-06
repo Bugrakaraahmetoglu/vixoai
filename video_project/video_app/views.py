@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import google.generativeai as genai
 
-# Configure the Google API
+# Configure the Google API with your API key
 genai.configure(api_key="AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY")
 
 class GenerateVideoView(APIView):
@@ -14,50 +14,43 @@ class GenerateVideoView(APIView):
         prompt_text = request.data.get("prompt")
         aspect_ratio = request.data.get("aspect_ratio", "9:16")
 
+        # Check if the prompt is provided
         if not prompt_text:
-            return Response({"error": "prompt alanı zorunludur."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Prompt alanı zorunludur."}, status=status.HTTP_400_BAD_REQUEST)
 
         output_folder = "videos"
         os.makedirs(output_folder, exist_ok=True)
 
         try:
-            # Get the video generation model
-            model = genai.get_generative_model(model_name="veo-2.0-generate-001")
+            # Use the appropriate method to generate the video model
+            model = genai.Model.from_pretrained("veo-2.0-generate-001")
             
-            # Start the generation operation
-            generation_config = {
-                "person_generation": "allow_adult",
-                "aspect_ratio": aspect_ratio
-            }
-            
+            # Start the video generation
             response = model.generate_video(
                 prompt=prompt_text,
-                generation_config=generation_config
+                aspect_ratio=aspect_ratio
             )
             
-            # Get the operation ID to track progress
-            operation_name = response.operation.name
-            
-            # Poll until completion
-            while not response.operation.done:
-                time.sleep(20)
-                response = genai.get_operation(operation_name)
-            
-            # Check for results
-            if hasattr(response, 'result') and response.result and hasattr(response.result, 'videos') and response.result.videos:
+            # Check if videos were generated successfully
+            if response.videos:
                 filename_prefix = "_".join(prompt_text.split()[:2])
                 
-                # Get the first video
-                generated_video = response.result.videos[0]
-                video_bytes = genai.download_file(uri=generated_video.uri)
+                # Get the first video from the response
+                generated_video = response.videos[0]
+                video_uri = generated_video.uri
+                
+                # Download the video using the provided URI
+                video_bytes = genai.download_file(uri=video_uri)
                 filename = f"{filename_prefix}.mp4"
                 filepath = os.path.join(output_folder, filename)
                 
+                # Save the video to disk
                 with open(filepath, "wb") as f:
                     f.write(video_bytes)
 
                 return Response({"video": filepath})
             else:
                 return Response({"error": "Video oluşturulamadı."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
