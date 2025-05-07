@@ -7,8 +7,7 @@ from google import genai
 from google.genai import types
 
 # API anahtarını yapılandır
-API_KEY = "AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY"  # API anahtarını environment variable'dan al
-# API_KEY = os.environ.get("GOOGLE_API_KEY")
+API_KEY = "AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY"
 
 # Kayıt klasörü oluştur
 OUTPUT_FOLDER = "videos"
@@ -45,27 +44,35 @@ class GenerateVideoView(APIView):
 
             # İşlem tamamlanana kadar bekle
             while not operation.done:
-                print("Video işleniyor, bekleniyor...")
+                print("Video işleniyor, lütfen bekleyin...")
                 time.sleep(20)
                 operation = client.operations.get(operation)
 
-            # Video yanıtı geldiyse kaydet
+            # Yanıtı kontrol et
             if operation.response and hasattr(operation.response, 'generated_videos') and operation.response.generated_videos:
+                # İlk iki kelimeden dosya ismini oluştur
+                filename_prefix = "_".join(prompt.split()[:2])
                 saved_files = []
-                for i, generated_video in enumerate(operation.response.generated_videos):
+
+                # Video indir ve kaydet
+                for n, generated_video in enumerate(operation.response.generated_videos):
                     video_bytes = client.files.download(file=generated_video.video)
-                    filename = f"{'_'.join(prompt.split()[:2])}_{i}.mp4"
+                    filename = f"{filename_prefix}.mp4"
                     filepath = os.path.join(OUTPUT_FOLDER, filename)
                     with open(filepath, "wb") as f:
                         f.write(video_bytes)
                     saved_files.append(filepath)
+                    print(f"Video başarıyla kaydedildi: {filepath}")
 
                 return Response({
                     "message": "Video başarıyla oluşturuldu",
                     "video_paths": saved_files
                 }, status=status.HTTP_200_OK)
-
-            return Response({"error": "Video üretilemedi."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                return Response({
+                    "error": "Video oluşturulamadı veya işlem başarısız oldu",
+                    "response": str(operation.response)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         except Exception as e:
             return Response({"error": f"Hata oluştu: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
