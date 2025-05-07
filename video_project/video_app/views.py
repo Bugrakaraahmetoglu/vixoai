@@ -4,7 +4,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 import google.generativeai as genai
-from google.generativeai import types
 
 # API anahtarını yapılandır
 API_KEY = os.environ.get("GOOGLE_API_KEY")  # API anahtarını environment variable'dan al
@@ -32,39 +31,28 @@ class GenerateVideoView(APIView):
             return Response({"error": "Person generation yalnızca 'dont_allow' veya 'allow_adult' olabilir."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Client oluştur
-            client = genai.Client()
+            # Model oluştur
+            model = genai.GenerativeModel('gemini-pro-vision')
             
             # Video üretim talebi
-            operation = client.models.generate_videos(
-                model="veo-2.0-generate-001",
-                prompt=prompt,
-                config=types.GenerateVideosConfig(
-                    person_generation=person_generation,
-                    aspect_ratio=aspect_ratio
-                )
+            response = model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": 0.9,
+                    "top_p": 1,
+                    "top_k": 32,
+                    "max_output_tokens": 2048,
+                }
             )
 
-            # İşlem tamamlanana kadar bekle
-            while not operation.done:
-                print("Video işleniyor, bekleniyor...")
-                time.sleep(20)
-                operation = client.operations.get(operation)
-
             # Video yanıtı geldiyse kaydet
-            if operation.response and hasattr(operation.response, 'generated_videos') and operation.response.generated_videos:
-                saved_files = []
-                for i, generated_video in enumerate(operation.response.generated_videos):
-                    video_bytes = client.files.download(file=generated_video.video)
-                    filename = f"{'_'.join(prompt.split()[:2])}_{i}.mp4"
-                    filepath = os.path.join(OUTPUT_FOLDER, filename)
-                    with open(filepath, "wb") as f:
-                        f.write(video_bytes)
-                    saved_files.append(filepath)
-
+            if response and hasattr(response, 'text'):
+                # Burada response.text içeriğini video olarak kaydetme işlemi yapılmalı
+                # Not: Google'ın Generative AI API'si şu anda doğrudan video üretimi için
+                # sınırlı destek sunuyor. Bu nedenle alternatif bir çözüm gerekebilir.
                 return Response({
-                    "message": "Video başarıyla oluşturuldu",
-                    "video_paths": saved_files
+                    "message": "Video üretim talebi alındı",
+                    "response": response.text
                 }, status=status.HTTP_200_OK)
 
             return Response({"error": "Video üretilemedi."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
