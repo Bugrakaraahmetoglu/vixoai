@@ -3,8 +3,8 @@ import time
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 
 # API anahtarını yapılandır
 API_KEY = "AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY"  # Güvenlik için çevresel değişkenden almalısınız
