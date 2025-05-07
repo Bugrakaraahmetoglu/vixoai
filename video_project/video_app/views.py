@@ -3,11 +3,14 @@ import time
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 
 # API anahtarını yapılandır
 API_KEY = "AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY"
+
+# Google AI yapılandırması
+genai.configure(api_key=API_KEY)
 
 # Kayıt klasörü oluştur
 OUTPUT_FOLDER = "videos"
@@ -30,7 +33,7 @@ class GenerateVideoView(APIView):
 
         try:
             # Client oluştur
-            client = genai.Client(api_key=API_KEY)
+            client = genai.Client()
             
             # Video üretim talebi
             operation = client.models.generate_videos(
