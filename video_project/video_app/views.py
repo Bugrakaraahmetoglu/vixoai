@@ -3,11 +3,12 @@ import time
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from google.generativeai import configure, generate_videos, get_operation, download_file
+from google import genai
+from google.genai import types
 
-# Ortam değişkeninden API anahtarını al
-API_KEY = os.environ.get("AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY")
-configure(api_key=API_KEY)
+# API anahtarını yapılandır
+API_KEY = "AIzaSyB2ooIwhfwMcx9sc7wCbrQxDQ-FaPrCwGY"  # Güvenlik için çevresel değişkenden almalısınız
+# API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 # Kayıt klasörü oluştur
 OUTPUT_FOLDER = "videos"
@@ -25,26 +26,30 @@ class GenerateVideoView(APIView):
             return Response({"error": "Aspect ratio yalnızca '16:9' veya '9:16' olabilir."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            operation = generate_videos(
+            # Client oluştur
+            client = genai.Client(api_key=API_KEY)
+            
+            # Video üretim talebi
+            operation = client.models.generate_videos(
                 model="veo-2.0-generate-001",
                 prompt=prompt,
-                config={
-                    "person_generation":"allow_adult",
-                    "aspect_ratio":aspect_ratio
-                    }
+                config=types.GenerateVideosConfig(
+                    person_generation="allow_adult",
+                    aspect_ratio=aspect_ratio
                 )
-            
+            )
 
+            # İşlem tamamlanana kadar bekle
             while not operation.done:
                 print("Video işleniyor, bekleniyor...")
                 time.sleep(15)
-                operation = get_operation(operation.name)
+                operation = client.operations.get(operation)
 
             # Video yanıtı geldiyse kaydet
-            if operation.response and hasattr(operation.response, "generated_videos"):
+            if operation.response and hasattr(operation.response, 'generated_videos') and operation.response.generated_videos:
                 saved_files = []
-                for i, video in enumerate(operation.response.generated_videos):
-                    video_bytes = download_file(video.video)
+                for i, generated_video in enumerate(operation.response.generated_videos):
+                    video_bytes = client.files.download(file=generated_video.video)
                     filename = f"{'_'.join(prompt.split()[:2])}_{i}.mp4"
                     filepath = os.path.join(OUTPUT_FOLDER, filename)
                     with open(filepath, "wb") as f:
