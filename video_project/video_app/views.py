@@ -29,7 +29,7 @@ class GenerateVideoView(APIView):
 
         try:
             # Model oluştur
-            model = genai.GenerativeModel('gemini-pro-vision')
+            model = genai.GenerativeModel('gemini-1.5-flash')
             
             # Video üretim talebi
             response = model.generate_content(
